@@ -1,0 +1,31 @@
+variable "vpc_cidr" {
+  description = "CIDR block for the VPC"
+  type        = string
+}
+
+variable "public_subnets" {
+  description = "Public subnet CIDRs"
+  type        = list(string)
+}
+
+variable "private_subnets" {
+  description = "Private subnet CIDRs"
+  type        = list(string)
+}
+
+variable "azs" {
+  description = "Availability Zones"
+  type        = list(string)
+}
+variable "region" {
+  description = "AWS region"
+  type        = string
+}
+variable "alb_dns_name" {
+  type = string
+}
+
+variable "alb_arn" {
+  type = string
+}
+
