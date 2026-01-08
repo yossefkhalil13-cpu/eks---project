@@ -1,9 +1,7 @@
 name: CI/CD - Build & Deploy to EKS
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 permissions:
   id-token: write
