@@ -1,9 +1,7 @@
-name: CI/CD - Build & Push Docker Image (EKS Infra Destroyed)
+name: CI/CD - Build & Deploy to EKS (Manual)
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 permissions:
   id-token: write
@@ -18,11 +16,12 @@ env:
   CONTAINER_NAME: demo-app
 
 jobs:
-  build:
+  deploy:
+    name: Build & Deploy to EKS
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout code
+      # 1️⃣ Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -30,8 +29,8 @@ jobs:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::615299736509:role/githubactioneksrole
-          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: arn:aws:iam::615299736509:role/GitHubActionsEKSRole
+          aws-region: eu-west-1
 
       # 3️⃣ Login to Amazon ECR
       - name: Login to Amazon ECR
@@ -42,16 +41,23 @@ jobs:
         run: |
           IMAGE_TAG=${{ github.sha }}
 
-          docker build -t $ECR_REPOSITORY:$IMAGE_TAG ./app
+          docker build -t demo-app:$IMAGE_TAG ./app
 
-          docker tag $ECR_REPOSITORY:$IMAGE_TAG \
-            $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
+          docker tag demo-app:$IMAGE_TAG \
+            615299736509.dkr.ecr.eu-west-1.amazonaws.com/demo-app:$IMAGE_TAG
 
           docker push \
-            $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
+            615299736509.dkr.ecr.eu-west-1.amazonaws.com/demo-app:$IMAGE_TAG
 
-      # 5️⃣ EKS Deploy (Disabled intentionally)
-      - name: Deploy to EKS (disabled)
-        if: false
+      # 5️⃣ Update kubeconfig
+      - name: Update kubeconfig
         run: |
-          echo "EKS infrastructure is destroyed. Deployment step is intentionally disabled to avoid costs."
+          aws eks update-kubeconfig \
+            --region eu-west-1 \
+            --name eks-prod-cluster
+
+      # 6️⃣ Deploy to EKS
+      - name: Deploy to EKS
+        run: |
+          kubectl set image deployment/demo-app \
+            demo-app=615299736509.dkr.ecr.eu-west-1.amazonaws.com/demo-app:${{ github.sha }}
