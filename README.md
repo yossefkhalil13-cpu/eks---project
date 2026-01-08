@@ -1,13 +1,13 @@
 🚀 AWS EKS Production CI/CD Project
 
-This repository demonstrates a production-grade AWS EKS architecture
-built using Terraform, Docker, Kubernetes, and GitHub Actions (OIDC).
+This repository demonstrates a production-grade AWS EKS architecture built using Terraform, Docker, Kubernetes, and GitHub Actions (OIDC).
 
-The project focuses on deploying a fully private Kubernetes workload
-behind CloudFront + AWS WAF, using a CloudFront VPC Origin
-to securely access private resources inside a VPC without exposing anything to the public internet.
+The project focuses on deploying a fully private Kubernetes workload behind Amazon CloudFront + AWS WAF, using a CloudFront VPC Origin to securely access private resources inside a VPC without exposing anything to the public internet.
 
-⸻
+⚠️ Note
+Infrastructure has been intentionally destroyed to avoid AWS costs.
+The repository is preserved as an architecture & CI/CD reference implementation.
+
 
 🧱 Architecture Overview
 
@@ -24,9 +24,12 @@ to securely access private resources inside a VPC without exposing anything to t
 ✔️ No NAT Gateway
 ✔️ AWS access via VPC Endpoints only
 
-📌 CloudFront Configuration
-	•	CloudFront is configured using Price Class 100 only to optimize cost
-	•	Traffic is served from the most cost-effective edge locations
+⸻
+
+☁️ CloudFront Configuration
+	•	CloudFront is configured using Price Class 100
+	•	Traffic is served only from the most cost-effective edge locations
+	•	AWS WAF is attached to CloudFront for edge-level protection
 
 ⸻
 
@@ -36,12 +39,16 @@ to securely access private resources inside a VPC without exposing anything to t
 	•	Containers: Docker
 	•	Orchestration: Kubernetes
 	•	CI/CD: GitHub Actions (OIDC – no static secrets)
-	•	Security: Least Privilege IAM, IRSA
 	•	Monitoring: Amazon CloudWatch Container Insights
+
+
+
+📂 Project Structure
+
 
 .
 ├── .github/workflows/
-│   └── ci-cd.yaml                 # GitHub Actions CI/CD pipeline (OIDC)
+│   └── ci-cd.yaml                 # GitHub Actions CI/CD pipeline (OIDC, manual)
 │
 ├── app/                           # Application source code
 │   ├── Dockerfile
@@ -49,26 +56,28 @@ to securely access private resources inside a VPC without exposing anything to t
 │   └── requirements.txt
 │
 ├── infra/
-│   ├── environments/dev/          # Terraform environment
+│   ├── environments/dev/          # Terraform environment (destroyed)
+│   │   ├── cloudfront.tf
+│   │   ├── cloudfront-vpc-origin.tf
+│   │   ├── ecr.tf
 │   │   ├── eks-cluster.tf
 │   │   ├── eks-node-group.tf
 │   │   ├── eks-iam.tf
-│   │   ├── ecr.tf
-│   │   ├── cloudfront.tf
-│   │   ├── cloudfront-vpc-origin.tf
-│   │   ├── waf.tf
+│   │   ├── iam_policy.json
 │   │   ├── main.tf
+│   │   ├── output.tf
 │   │   ├── provider.tf
-│   │   ├── variables.tf
 │   │   ├── terraform.tfvars
-│   │   └── versions.tf
+│   │   ├── variables.tf
+│   │   ├── versions.tf
+│   │   └── waf.tf
 │   │
 │   └── modules/
 │       └── vpc/
-│           ├── main.tf
 │           ├── endpoints.tf       # VPC Endpoints (ECR, STS, Logs)
-│           ├── variables.tf
-│           └── outputs.tf
+│           ├── main.tf
+│           ├── outputs.tf
+│           └── variables.tf
 │
 ├── k8s/                           # Kubernetes manifests
 │   ├── deployment.yaml
@@ -80,25 +89,26 @@ to securely access private resources inside a VPC without exposing anything to t
 ├── .gitignore
 └── README.md
 
+
+
 🔐 Security Design
 	•	EKS runs in private subnets only
 	•	Internal ALB (no public exposure)
 	•	CloudFront accesses ALB using VPC Origin
 	•	AWS WAF attached to CloudFront
-	•	IAM follows least-privilege
-	•	IRSA used for:
-	•	AWS Load Balancer Controller (controller pod)
-	•	GitHub Actions uses OIDC
+	•	IAM follows least-privilege principle
+	•	OIDC authentication used for GitHub Actions
 	•	No AWS credentials stored in GitHub
 
 ⸻
 
 ⚙️ Kubernetes & ALB Control Flow
 	•	AWS Load Balancer Controller is installed in EKS
-	•	Controller runs using IRSA
-	•	Ingress resources trigger the controller to:
-	•	Create and manage Internal ALB
+	•	Controller runs using IRSA (IAM Role for Service Account)
+	•	IRSA is used only by the controller pod to:
+	•	Create and manage internal ALBs
 	•	Configure listeners and target groups
+	•	Kubernetes Ingress resources trigger ALB creation
 	•	ALB is reachable only via CloudFront VPC Origin
 
 ⸻
@@ -111,14 +121,15 @@ Pipeline Steps
 	1.	Authenticate to AWS using OIDC
 	2.	Build Docker image
 	3.	Push image to Amazon ECR
-	4.	Update the Kubernetes deployment using kubectl
-(kubectl set image) to trigger a rolling update
+	4.	Update Kubernetes deployment using: kubectl set image to trigger a rolling update
+
+
 
 Pipeline Status
 	•	CI/CD depends on live AWS infrastructure (EKS & ECR)
-	•	Infrastructure has been intentionally destroyed to avoid cost
-	•	Workflow is currently manual 
-	•	The workflow file is preserved as a reference implementation
+	•	Infrastructure has been intentionally destroyed
+	•	Workflow is currently manual
+	•	Workflow file is preserved as a reference implementation
 	•	When infrastructure is recreated, the pipeline can be re-enabled without changes
 
 ⸻
@@ -129,13 +140,13 @@ Pipeline Status
 	•	Pod & Container resource usage
 	•	CPU utilization over limits
 
-Screenshots are available in the screenshots/ directory.
+📸 Screenshots are available in the screenshots/ directory.
 
 ⸻
 
 🧹 Infrastructure Lifecycle
 	•	Infrastructure provisioned using Terraform
-	•	CI/CD operates only when infra exists
+	•	CI/CD operates only when infrastructure exists
 	•	Infrastructure can be safely destroyed to control cost
 	•	Repository remains as:
 	•	Architecture reference
