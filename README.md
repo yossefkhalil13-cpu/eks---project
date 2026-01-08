@@ -9,6 +9,8 @@ to securely access private resources inside a VPC **without exposing anything to
 
 ---
 
+## 🧱 Architecture Overview
+
 ### Traffic Flow
 
 1. User sends request to **Amazon CloudFront**
@@ -23,23 +25,20 @@ to securely access private resources inside a VPC **without exposing anything to
 ✔️ No NAT Gateway  
 ✔️ AWS access via **VPC Endpoints only**
 
----
-
-## 🌍 CloudFront Configuration
-
-- CloudFront is configured using **Price Class 100**
-- Traffic is served only from the most cost-effective edge locations
-- AWS WAF is attached to CloudFront for Layer-7 protection
+📌 **CloudFront Configuration**
+- CloudFront uses **Price Class 100** to optimize cost
+- Traffic is served only from cost-effective edge locations
 
 ---
 
-## 🛠 Technology Stack
+## 🛠️ Technology Stack
 
 - **AWS**: EKS, ECR, VPC, ALB, CloudFront, WAF, IAM
 - **Infrastructure as Code**: Terraform
 - **Containers**: Docker
 - **Orchestration**: Kubernetes
 - **CI/CD**: GitHub Actions (OIDC – no static secrets)
+- **Security**: Least Privilege IAM
 - **Monitoring**: Amazon CloudWatch Container Insights
 
 ---
@@ -48,61 +47,71 @@ to securely access private resources inside a VPC **without exposing anything to
 
 ```text
 .
-├── .github/workflows/
-│   └── ci-cd.yaml                # GitHub Actions CI/CD pipeline (manual)
+├── .github/
+│   └── workflows/
+│       └── ci-cd.yaml              # GitHub Actions CI/CD pipeline (manual)
 │
-├── app/                          # Application source code
+├── app/                            # Application source code
 │   ├── Dockerfile
 │   ├── app.py
 │   └── requirements.txt
 │
 ├── infra/
-│   ├── environments/dev/         # Terraform environment
-│   │   ├── cloudfront.tf
-│   │   ├── cloudfront-vpc-origin.tf
-│   │   ├── waf.tf
-│   │   ├── ecr.tf
-│   │   ├── eks-cluster.tf
-│   │   ├── eks-node-group.tf
-│   │   ├── main.tf
-│   │   ├── provider.tf
-│   │   ├── variables.tf
-│   │   └── versions.tf
+│   ├── environments/
+│   │   └── dev/                    # Environment-specific Terraform
+│   │       ├── cloudfront.tf
+│   │       ├── cloudfront-vpc-origin.tf
+│   │       ├── waf.tf
+│   │       ├── ecr.tf
+│   │       ├── eks-cluster.tf
+│   │       ├── eks-node-group.tf
+│   │       ├── eks-iam.tf
+│   │       ├── iam_policy.json
+│   │       ├── main.tf
+│   │       ├── output.tf
+│   │       ├── provider.tf
+│   │       ├── terraform.tfvars
+│   │       ├── variables.tf
+│   │       └── versions.tf
 │   │
 │   └── modules/
 │       └── vpc/
+│           ├── endpoints.tf        # VPC Endpoints (ECR, STS, Logs)
 │           ├── main.tf
-│           ├── endpoints.tf      # VPC Endpoints (ECR, STS, Logs)
-│           ├── variables.tf
-│           └── outputs.tf
+│           ├── outputs.tf
+│           └── variables.tf
 │
-├── k8s/                          # Kubernetes manifests
+├── k8s/                            # Kubernetes manifests
 │   ├── deployment.yaml
 │   ├── service.yaml
-│   └── ingress.yaml
+│   └── ingress.yaml                # Managed by AWS Load Balancer Controller
 │
-├── screenshots/                  # Architecture & monitoring screenshots
+├── screenshots/                    # Architecture & monitoring screenshots
 │
 ├── .gitignore
 └── README.md
+
 🔐 Security Design
 	•	EKS runs in private subnets only
 	•	Internal ALB (no public exposure)
-	•	CloudFront accesses ALB via VPC Origin
+	•	CloudFront accesses ALB using VPC Origin
 	•	AWS WAF attached to CloudFront
 	•	IAM follows least-privilege principle
-	•	IRSA is used for the AWS Load Balancer Controller pod
-	•	GitHub Actions uses OIDC (no AWS secrets stored in GitHub)
+	•	No AWS credentials stored in GitHub
 
 ⸻
 
 ⚙️ Kubernetes & ALB Control Flow
-	•	AWS Load Balancer Controller is installed in EKS
-	•	Controller runs using IRSA
-	•	Ingress resources trigger the controller to:
+	•	AWS Load Balancer Controller is installed in the EKS cluster
+	•	Controller runs using IRSA (IAM Roles for Service Accounts)
+	•	IRSA is used only for the controller pod to:
 	•	Create and manage Internal ALB
 	•	Configure listeners and target groups
+	•	Kubernetes Ingress resources trigger the controller
 	•	ALB is reachable only via CloudFront VPC Origin
+
+Note: IRSA configuration exists in AWS and was used for the controller pod,
+but it is not fully represented as reusable Terraform modules in this repository.
 
 ⸻
 
@@ -114,15 +123,15 @@ Pipeline Steps
 	1.	Authenticate to AWS using OIDC
 	2.	Build Docker image
 	3.	Push image to Amazon ECR
-	4.	Update Kubernetes deployment using kubectl set image
-(rolling update)
+	4.	Update the Kubernetes deployment using: kubectl set image to trigger a rolling update
+-----
 
 Pipeline Status
 	•	CI/CD depends on live AWS infrastructure (EKS & ECR)
 	•	Infrastructure has been intentionally destroyed to avoid cost
 	•	Workflow is currently manual
-	•	The workflow file is preserved as a reference implementation
-	•	When infrastructure is recreated, the pipeline can be re-enabled without changes
+	•	Workflow file is preserved as a reference implementation
+	•	Pipeline can be re-enabled without changes when infrastructure is recreated
 
 ⸻
 
@@ -143,3 +152,4 @@ Screenshots are available in the screenshots/ directory.
 	•	Repository remains as:
 	•	Architecture reference
 	•	Production-grade EKS CI/CD example
+                              
