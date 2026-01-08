@@ -1,7 +1,9 @@
-name: CI/CD - Build & Deploy to EKS
+name: CI/CD - Build & Push Docker Image (EKS Infra Destroyed)
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - main
 
 permissions:
   id-token: write
@@ -16,22 +18,26 @@ env:
   CONTAINER_NAME: demo-app
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
 
     steps:
+      # 1️⃣ Checkout code
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 2️⃣ Configure AWS credentials using OIDC
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::615299736509:role/GitHubActionsEKSRole
+          role-to-assume: arn:aws:iam::615299736509:role/githubactioneksrole
           aws-region: ${{ env.AWS_REGION }}
 
+      # 3️⃣ Login to Amazon ECR
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
+      # 4️⃣ Build & Push Docker Image
       - name: Build & Push Docker Image
         run: |
           IMAGE_TAG=${{ github.sha }}
@@ -44,13 +50,8 @@ jobs:
           docker push \
             $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
 
-      - name: Update kubeconfig
+      # 5️⃣ EKS Deploy (Disabled intentionally)
+      - name: Deploy to EKS (disabled)
+        if: false
         run: |
-          aws eks update-kubeconfig \
-            --region $AWS_REGION \
-            --name $CLUSTER_NAME
-
-      - name: Deploy to EKS
-        run: |
-          kubectl set image deployment/$DEPLOYMENT_NAME \
-            $CONTAINER_NAME=$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:${{ github.sha }}
+          echo "EKS infrastructure is destroyed. Deployment step is intentionally disabled to avoid costs."
